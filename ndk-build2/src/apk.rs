@@ -110,6 +110,8 @@ impl ApkConfig {
         Ok(UnalignedApk {
             config: self,
             pending_libs: HashSet::default(),
+            provided: HashSet::new(),
+            readelf_cache: HashMap::new(),
         })
     }
 
@@ -249,6 +251,12 @@ impl ApkConfig {
 pub struct UnalignedApk<'a> {
     config: &'a ApkConfig,
     pending_libs: HashSet<String>,
+    /// Shared libraries already seen across all `add_lib_recursively` calls,
+    /// so repeated calls don't re-fork readelf for the same transitive deps.
+    pub(crate) provided: HashSet<String>,
+    /// Cache of `readelf -d` results keyed by library path, avoiding redundant
+    /// forks when the same `.so` is analyzed more than once.
+    pub(crate) readelf_cache: HashMap<PathBuf, HashSet<String>>,
 }
 
 impl<'a> UnalignedApk<'a> {

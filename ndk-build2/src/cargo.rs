@@ -16,13 +16,15 @@ pub fn cargo_ndk(
     target_dir: impl AsRef<Path>,
 ) -> Result<Command, NdkError> {
     let triple = target.rust_triple();
-    let clang_target = format!("--target={}{}", target.ndk_llvm_triple(), sdk_version);
     let mut cargo = Command::new("cargo");
     cargo.stdin(Stdio::null());
 
     const SEP: &str = "\x1f";
 
-    // Read initial CARGO_ENCODED_/RUSTFLAGS
+    // Read initial CARGO_ENCODED_/RUSTFLAGS to preserve any user-set flags
+    // but DO NOT add the target-specific -Clink-arg here because it would
+    // incorrectly apply to host-side builds (build scripts, proc-macros).
+    // The target-specific linker is configured via CARGO_TARGET_<triple>_LINKER above.
     let mut rustflags = match var("CARGO_ENCODED_RUSTFLAGS") {
         Ok(val) => {
             if var_os("RUSTFLAGS").is_some() {
@@ -61,6 +63,7 @@ pub fn cargo_ndk(
 
     // Configure cross-compiler for `cc` crate
     // https://github.com/rust-lang/cc-rs#external-configuration-via-environment-variables
+    let clang_target = format!("--target={}{}", target.ndk_llvm_triple(), sdk_version);
     cargo.env(format!("CC_{}", triple), &clang);
     cargo.env(format!("CFLAGS_{}", triple), &clang_target);
     cargo.env(format!("CXX_{}", triple), &clang_pp);
@@ -69,11 +72,12 @@ pub fn cargo_ndk(
     // Configure LINKER for `rustc`
     // https://doc.rust-lang.org/beta/cargo/reference/environment-variables.html#configuration-environment-variables
     cargo.env(cargo_env_target_cfg("LINKER", triple), &clang);
-    if !rustflags.is_empty() {
-        rustflags.push_str(SEP);
-    }
-    rustflags.push_str("-Clink-arg=");
-    rustflags.push_str(&clang_target);
+    // NOTE: Do NOT add -Clink-arg=--target=... to RUSTFLAGS here.
+    // CARGO_ENCODED_RUSTFLAGS applies to ALL rustc invocations including build scripts
+    // and proc-macros which run on the HOST architecture. The target-specific
+    // CARGO_TARGET_<triple>_LINKER set above is sufficient for cargo to use the
+    // correct linker for target compilation. Adding the link-arg globally causes
+    // massive process explosion when building build scripts/proc-macros.
 
     let ar = ndk.toolchain_bin("ar", target)?;
     cargo.env(format!("AR_{}", triple), &ar);
@@ -99,9 +103,9 @@ pub fn cargo_ndk(
         // forwarded to the final compiler invocation rendering our workaround ineffective.
         // The cargo page documenting this discrepancy (https://doc.rust-lang.org/cargo/commands/cargo-rustc.html)
         // suggests to resort to RUSTFLAGS.
-        // Note that `rustflags` will never be empty because of an unconditional `.push_str` above,
-        // so we can safely start with appending \x1f here.
-        rustflags.push_str(SEP);
+        if !rustflags.is_empty() {
+            rustflags.push_str(SEP);
+        }
         rustflags.push_str("-L");
         rustflags.push_str(SEP);
         rustflags.push_str(

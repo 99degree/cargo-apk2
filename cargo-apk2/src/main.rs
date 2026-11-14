@@ -23,7 +23,7 @@ struct Args {
 }
 
 #[derive(clap::Subcommand)]
-#[command(about = "Building Android Applications (APK) with Rust", version)]
+#[command(about = "Building Android Applications (APK) with Rust", version = env!("CARGO_APK2_VERSION_FULL"))]
 enum ApkSubCmd {
     /// Analyze the current package and report errors, but don't build object files nor an apk
     #[clap(visible_alias = "c")]

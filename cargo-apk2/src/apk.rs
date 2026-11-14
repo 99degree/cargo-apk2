@@ -195,6 +195,7 @@ impl<'a> ApkBuilder<'a> {
                 self.cmd.target_dir(),
             )?;
             cargo.arg("check");
+            cargo.arg("-j").arg("1");
             if self.cmd.target().is_none() {
                 let triple = target.rust_triple();
                 cargo.arg("--target").arg(triple);
@@ -749,6 +750,7 @@ impl<'a> ApkBuilder<'a> {
             );
 
             cargo.arg("build");
+            cargo.arg("-j").arg("1");
             if self.cmd.target().is_none() {
                 cargo.arg("--target").arg(triple);
             }
@@ -1021,6 +1023,7 @@ impl<'a> ApkBuilder<'a> {
                 self.cmd.target_dir(),
             )?;
             cargo.arg(cargo_cmd);
+            cargo.arg("-j").arg("1");
             self.cmd.args().apply(&mut cargo);
 
             if self.cmd.target().is_none() {
