@@ -59,6 +59,13 @@ pub fn cargo_ndk(
         }
     };
 
+    // Force single-threaded compilation to drastically reduce fork() count
+    // and memory usage on low-end devices (e.g. Android/Termux).
+    // This caps cargo's parallelism at 1 job regardless of CPU count.
+    // (`-j1` is also passed on the command line in cargo-apk2, but setting
+    // the env var here covers all entry points through `cargo_ndk`.)
+    cargo.env("CARGO_BUILD_JOBS", "1");
+
     let (clang, clang_pp) = ndk.clang()?;
 
     // Configure cross-compiler for `cc` crate
