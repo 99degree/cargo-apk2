@@ -364,11 +364,17 @@ impl Ndk {
         if !clang.exists() {
             return Err(NdkError::PathNotFound(clang));
         }
+        // Resolve symlinks so that $0 inside the Termux clang wrapper points to
+        // /usr/bin/... rather than the NDK symlink path. Otherwise the wrapper
+        // calls $(dirname $0)/clang which resolves back to the NDK symlink itself,
+        // causing infinite recursion with --target prepended on every hop.
+        let clang = dunce::canonicalize(&clang).unwrap_or(clang);
 
         let clang_pp = bin_path.join("clang++").with_extension(ext);
         if !clang_pp.exists() {
             return Err(NdkError::PathNotFound(clang_pp));
         }
+        let clang_pp = dunce::canonicalize(&clang_pp).unwrap_or(clang_pp);
 
         Ok((clang, clang_pp))
     }

@@ -70,11 +70,14 @@ pub fn cargo_ndk(
 
     // Configure cross-compiler for `cc` crate
     // https://github.com/rust-lang/cc-rs#external-configuration-via-environment-variables
-    let clang_target = format!("--target={}{}", target.ndk_llvm_triple(), sdk_version);
+    // NOTE: Do NOT put `--target=...` in CFLAGS/CXXFLAGS. The `cc` crate already
+    // adds `--target=<triple>` itself based on the target. Adding it here too
+    // causes duplicate `--target` flags on the clang command line, which fails.
+    // Pass the Android API level via -D__ANDROID_API__ instead.
     cargo.env(format!("CC_{}", triple), &clang);
-    cargo.env(format!("CFLAGS_{}", triple), &clang_target);
+    cargo.env(format!("CFLAGS_{}", triple), &format!("-D__ANDROID_API__={}", sdk_version));
     cargo.env(format!("CXX_{}", triple), &clang_pp);
-    cargo.env(format!("CXXFLAGS_{}", triple), &clang_target);
+    cargo.env(format!("CXXFLAGS_{}", triple), &format!("-D__ANDROID_API__={}", sdk_version));
 
     // Configure LINKER for `rustc`
     // https://doc.rust-lang.org/beta/cargo/reference/environment-variables.html#configuration-environment-variables
